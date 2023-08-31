@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 )
 
 type AutoFocusRange string
@@ -14,8 +16,23 @@ const (
 	AutoFocusFull                  = "full"
 )
 
+const (
+	EncodingJPEG   Encoding = "jpg"
+	EncodingPNG             = "png"
+	EncodingRGB             = "rgb"
+	EncodingBMP             = "bmp"
+	EncodingYuv420          = "yuv420"
+)
+
+type Encoding string
+
 type Settings struct {
 	AutoFocusRange AutoFocusRange
+	Quality        int
+	HDR            bool
+	VFlip          bool
+	HFlip          bool
+	Encoding       Encoding
 }
 
 type Camera interface {
@@ -32,14 +49,24 @@ func NewLibCamera(settings *Settings) Camera {
 	}
 }
 
+func boolToStr(b bool) string {
+	if b {
+		return "1"
+	}
+	return "0"
+}
+
 func (c *LibCamera) TakePhoto(filePath string) error {
+	_ = os.Mkdir(filepath.Dir(filePath), 0755)
+
 	cmd := exec.Command("libcamera-still",
 		"-o", filePath,
-		"--autofocus-range", "macro",
-		"--vflip",
-		"--hflip",
-		"--hdr", "0",
-		"-q", "100",
+		"--autofocus-range", string(c.settings.AutoFocusRange),
+		"--vflip", boolToStr(c.settings.VFlip),
+		"--hflip", boolToStr(c.settings.HFlip),
+		"--hdr", boolToStr(c.settings.HDR),
+		"-e", string(c.settings.Encoding),
+		"-q", strconv.FormatInt(int64(c.settings.Quality), 10),
 	)
 
 	// Przekieruj wyjście błędów i standardowe do konsoli, jeśli chcesz je zobaczyć
