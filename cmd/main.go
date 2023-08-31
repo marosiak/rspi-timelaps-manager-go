@@ -1,23 +1,32 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
+	"github.com/gofiber/template/html/v2"
 	"github.com/macrosiak/rspi-timelaps-manager-go/camera"
 	"github.com/macrosiak/rspi-timelaps-manager-go/config"
 	"github.com/macrosiak/rspi-timelaps-manager-go/worker"
 	"github.com/rs/zerolog/log"
+	"net/http"
 	"os"
-	"time"
+	"path/filepath"
 )
+
+func initStaticStorage(app *fiber.App) {
+	app.Use(filesystem.New(filesystem.Config{
+		PathPrefix: "static",
+		Root:       http.Dir("./photos"),
+	}))
+}
 
 func getLatestFile(dir string) string {
 	files, _ := os.ReadDir(dir)
 	var newestFile string
 	var newestTime int64 = 0
 	for _, f := range files {
-		fi, err := os.Stat(dir + f.Name())
+		fi, err := os.Stat(filepath.Join(dir, f.Name()))
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -28,6 +37,20 @@ func getLatestFile(dir string) string {
 		}
 	}
 	return newestFile
+}
+
+func findDirName(path, targetDir string) string {
+	for {
+		dir, base := filepath.Split(path)
+		if base == targetDir {
+			return base
+		}
+		if dir == path { // osiągnęliśmy korzeń lub ścieżkę nie zawierającą separatorów
+			break
+		}
+		path = dir
+	}
+	return ""
 }
 
 func main() {
@@ -42,26 +65,29 @@ func main() {
 		cam = camera.NewLibCamera(settings)
 	}
 
-	var directory string
-	flag.StringVar(&directory, "d", "photos", "output directory variable")
-
-	var sleepTime int
-	flag.IntVar(&sleepTime, "t", 60, "time to wait after taking photo")
-
-	flag.Parse()
-
-	cfg.Delay = time.Duration(sleepTime) * time.Second
-	cfg.OutputDir = directory
-
 	timelapseWorker := worker.NewWorker(cam)
 	go timelapseWorker.Record()
 
-	app := fiber.New()
+	engine := html.New("./views", ".html")
+	app := fiber.New(fiber.Config{
+		Views: engine,
+	})
+	app.Get("/latest", func(c *fiber.Ctx) error {
+		latestFile := getLatestFile(cfg.OutputDir)
+		return c.Redirect("/" + latestFile)
+	})
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		latestFile := getLatestFile(cfg.OutputDir)
-		return c.SendString(fmt.Sprintf("Hello, World! %s", latestFile))
+		return c.Render("index", fiber.Map{
+			"LatestImage": latestFile,
+		})
 	})
+	app.Use(filesystem.New(filesystem.Config{
+		Root:   http.Dir(cfg.OutputDir),
+		Browse: true,
+		MaxAge: 3600,
+	}))
 
 	err := app.Listen(":80")
 	if err != nil {
