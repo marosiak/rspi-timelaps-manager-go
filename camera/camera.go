@@ -1,7 +1,6 @@
 package camera
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,10 +36,15 @@ type Settings struct {
 
 type Camera interface {
 	TakePhoto(filePath string) error
+	Settings() *Settings
 }
 
 type LibCamera struct {
 	settings *Settings
+}
+
+func (c *LibCamera) Settings() *Settings {
+	return c.settings
 }
 
 func NewLibCamera(settings *Settings) Camera {
@@ -68,14 +72,14 @@ func (c *LibCamera) TakePhoto(filePath string) error {
 		"-e", string(c.settings.Encoding),
 		"-q", strconv.FormatInt(int64(c.settings.Quality), 10),
 	)
-
+	println(cmd.String())
 	// Przekieruj wyjście błędów i standardowe do konsoli, jeśli chcesz je zobaczyć
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("failed to take photo: %w", err)
+		return err
 	}
 
 	return nil

@@ -7,9 +7,15 @@ import (
 	"path/filepath"
 )
 
-type FakeCamera struct{}
+type FakeCamera struct {
+	settings *Settings
+}
 
-func (c FakeCamera) TakePhoto(filePath string) error {
+func (c *FakeCamera) Settings() *Settings {
+	return c.settings
+}
+
+func (c *FakeCamera) TakePhoto(filePath string) error {
 	_ = os.Mkdir(filepath.Dir(filePath), 0755)
 
 	resp, err := http.Get("https://placekitten.com/256/256")
@@ -30,5 +36,5 @@ func (c FakeCamera) TakePhoto(filePath string) error {
 }
 
 func NewFakeCamera() Camera {
-	return FakeCamera{}
+	return &FakeCamera{}
 }

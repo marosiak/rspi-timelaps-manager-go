@@ -1,0 +1,12 @@
+{
+  "ConfigFilePath": "config.json",
+  "Development": true,
+  "OutputDir": "photos",
+  "Delay": 60000000000,
+  "AutoFocusRange": "normal",
+  "Quality": 95,
+  "HDR": false,
+  "VFlip": false,
+  "HFlip": false,
+  "Encoding": "jpg"
+}
