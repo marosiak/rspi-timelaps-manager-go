@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
@@ -36,7 +37,14 @@ func getLatestFile(dir string) string {
 
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	cfg := config.New()
+	configPath := flag.String("config", "config.json", "Path to the config file")
+	flag.Parse()
+
+	cfg, err := config.New(*configPath)
+	if err != nil {
+		fmt.Printf("Error initializing config: %v\n", err)
+		return
+	}
 
 	var cam camera.Camera
 	if cfg.Development {
@@ -48,7 +56,7 @@ func main() {
 		cam = camera.NewLibCamera(settings)
 	}
 
-	timelapseWorker := worker.NewWorker(cam)
+	timelapseWorker := worker.NewWorker(cam, cfg)
 	go timelapseWorker.Record()
 
 	engine := html.NewFileSystem(http.FS(views.GetViewsFileSystem()), ".html")
@@ -72,7 +80,7 @@ func main() {
 		MaxAge: 3600,
 	}))
 
-	err := app.Listen(":80")
+	err = app.Listen(":80")
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to start server")
 	}

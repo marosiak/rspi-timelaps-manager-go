@@ -12,6 +12,10 @@ type FakeCamera struct {
 }
 
 func (c *FakeCamera) Settings() *Settings {
+	if c.settings == nil {
+		c.settings = &Settings{}
+	}
+
 	return c.settings
 }
 

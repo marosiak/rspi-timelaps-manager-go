@@ -5,7 +5,7 @@
   "Delay": 60000000000,
   "AutoFocusRange": "normal",
   "Quality": 95,
-  "HDR": false,
+  "HDR": true,
   "VFlip": false,
   "HFlip": false,
   "Encoding": "jpg"

@@ -14,8 +14,8 @@ type Worker struct {
 	cfg    *config.Config
 }
 
-func NewWorker(camera camera.Camera) *Worker {
-	return &Worker{camera: camera, cfg: config.New()}
+func NewWorker(camera camera.Camera, cfg *config.Config) *Worker {
+	return &Worker{camera: camera, cfg: cfg}
 }
 
 const timeFormat = "2006-01-02__15-04-05"
