@@ -1,68 +1,68 @@
 package config
 
 import (
-	"encoding/json"
+	"fmt"
+	_ "github.com/joho/godotenv/autoload"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/macrosiak/rspi-timelaps-manager-go/camera"
 	"github.com/rs/zerolog/log"
-	"os"
+	"reflect"
+	"strings"
 	"time"
+	"unicode"
 )
 
 type Config struct {
-	ConfigFilePath string `json:"config_file_path"`
+	Development bool          `default:"false" split_words:"true"`
+	OutputDir   string        `default:"photos" split_words:"true"`
+	Delay       time.Duration `default:"20s" split_words:"true"`
 
-	Development bool          `json:"development"`
-	OutputDir   string        `json:"output_dir"`
-	Delay       time.Duration `json:"delay"`
-
-	AutoFocusRange camera.AutoFocusRange `json:"auto_focus_range"`
-	Quality        int                   `json:"quality"`
-	HDR            bool                  `json:"hdr"`
-	VFlip          bool                  `json:"vflip"`
-	HFlip          bool                  `json:"hflip"`
-	Encoding       camera.Encoding       `json:"encoding"`
+	AutoFocusRange camera.AutoFocusRange `default:"normal" split_words:"true"`
+	Quality        int                   `default:"95" split_words:"true"`
+	Hdr            bool                  `default:"false" split_words:"true"`
+	VFlip          bool                  `default:"false" split_words:"true"`
+	HFlip          bool                  `default:"false" split_words:"true"`
+	Encoding       camera.Encoding       `default:"jpg" split_words:"true"`
+	Denoise        camera.Denoise        `default:"auto" split_words:"true"`
 }
 
-func (c *Config) loadDefault() {
-	c.ConfigFilePath = "config.json"
-	c.Development = false
-	c.OutputDir = "photos"
-	c.Delay = time.Minute
-	c.AutoFocusRange = "normal"
-	c.Quality = 95
-	c.HDR = false
-	c.VFlip = false
-	c.HFlip = false
-	c.Encoding = "jpg"
-}
-
-func (c *Config) loadFromFile(filePath string) error {
-	data, err := os.ReadFile(filePath)
+func New() *Config {
+	cfg := &Config{}
+	err := envconfig.Process("", cfg)
 	if err != nil {
-		return err
+		log.Fatal().Err(err).Msg("failed to process env")
+		return nil
 	}
-
-	err = json.Unmarshal(data, c)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return cfg
 }
 
-func New(configPath string) (*Config, error) {
-	config := &Config{}
+func GenerateEnvTemplate() {
+	cfg := Config{}
+	t := reflect.TypeOf(cfg)
+	fmt.Println("Here are the expected environment variables:")
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		tag := field.Tag.Get("split_words")
 
-	println(configPath)
-	log.Info().Msg(configPath)
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		config.loadDefault()
-		return config, nil
-	} else {
-		err := config.loadFromFile(configPath)
-		if err != nil {
-			return nil, err
+		if tag == "true" {
+			envName := field.Name
+			runes := []rune(envName)
+			var parts []string
+			word := []rune{}
+
+			for i, r := range runes {
+				if unicode.IsUpper(r) {
+					if len(word) > 0 {
+						parts = append(parts, string(word))
+					}
+					word = []rune{runes[i]}
+				} else {
+					word = append(word, r)
+				}
+			}
+			parts = append(parts, string(word))
+			envName = strings.ToUpper(strings.Join(parts, "_"))
+			fmt.Println(envName + "=")
 		}
-		return config, nil
 	}
 }

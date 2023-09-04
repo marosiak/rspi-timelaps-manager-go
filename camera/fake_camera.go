@@ -39,6 +39,8 @@ func (c *FakeCamera) TakePhoto(filePath string) error {
 	return nil
 }
 
+func (c *FakeCamera) UpdateSettings(settings *Settings) {}
+
 func NewFakeCamera() Camera {
 	return &FakeCamera{}
 }
