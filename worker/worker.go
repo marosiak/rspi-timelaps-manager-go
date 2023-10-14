@@ -43,7 +43,7 @@ func (w *Worker) takePhoto() {
 	w.configToCameraSettings()
 
 	err := w.camera.StopStreaming(w.streamCmd)
-	if err != nil && errors.Is(err, camera.ErrNoProcess) {
+	if err != nil && !errors.Is(err, camera.ErrNoProcess) {
 		log.Printf("failed to stop streamCmd: %v", err)
 	} else {
 		w.streamCmd = nil
