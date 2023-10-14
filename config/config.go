@@ -6,6 +6,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/macrosiak/rspi-timelaps-manager-go/camera"
 	"github.com/rs/zerolog/log"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ type Config struct {
 	Delay       time.Duration `default:"20s" split_words:"true"`
 
 	AutoFocusRange camera.AutoFocusRange `default:"normal" split_words:"true"`
+	AutoFocusMode  camera.AutoFocusMode  `default:"auto" split_words:"true"`
 	Quality        int                   `default:"95" split_words:"true"`
 	Hdr            bool                  `default:"false" split_words:"true"`
 	VFlip          bool                  `default:"false" split_words:"true"`
@@ -33,6 +35,8 @@ func New() *Config {
 		log.Fatal().Err(err).Msg("failed to process env")
 		return nil
 	}
+
+	_ = os.Mkdir(cfg.OutputDir, 0755)
 	return cfg
 }
 

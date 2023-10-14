@@ -1,18 +1,22 @@
 package camera
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 )
 
-type AutoFocusRange string
-
 const (
 	AutoFocusNormal AutoFocusRange = "normal"
 	AutoFocusMacro                 = "macro"
 	AutoFocusFull                  = "full"
+)
+
+const (
+	AutoFocusModeManual AutoFocusMode = "manual"
+	AutoFocusModeAuto                 = "auto"
 )
 
 const (
@@ -23,8 +27,6 @@ const (
 	EncodingYuv420          = "yuv420"
 )
 
-type Encoding string
-
 const (
 	DenoiseAuto    Denoise = "auto"
 	DenoiseOff             = "off"
@@ -32,12 +34,19 @@ const (
 	DenoiseCdnFast         = "cdn_fast"
 	DenoiseCdnHq           = "cdn_hq"
 )
+
+type AutoFocusRange string
+
+type Encoding string
 type Denoise string
 
 type AutoFocusMode string
-type Settings struct {
+type CameraSettings struct {
+	Width          string
+	Height         string
+	StreamCodec    string // h264
 	AutoFocusRange AutoFocusRange
-	AutoFocusMode AutoFocusMode
+	AutoFocusMode  AutoFocusMode
 	Quality        int
 	HDR            bool
 	VFlip          bool
@@ -48,23 +57,25 @@ type Settings struct {
 
 type Camera interface {
 	TakePhoto(filePath string) error
-	Settings() *Settings
-	UpdateSettings(settings *Settings)
+	Settings() *CameraSettings
+	UpdateSettings(settings *CameraSettings)
+	OpenStream(port int) (*exec.Cmd, error)
+	StopStreaming(streamCmd *exec.Cmd) error
 }
 
 type LibCamera struct {
-	settings *Settings
+	settings *CameraSettings
 }
 
-func (c *LibCamera) Settings() *Settings {
+func (c *LibCamera) Settings() *CameraSettings {
 	return c.settings
 }
 
-func (c *LibCamera) UpdateSettings(settings *Settings) {
+func (c *LibCamera) UpdateSettings(settings *CameraSettings) {
 	c.settings = settings
 }
 
-func NewLibCamera(settings *Settings) Camera {
+func NewLibCamera(settings *CameraSettings) Camera {
 	return &LibCamera{
 		settings: settings,
 	}
@@ -77,13 +88,10 @@ func boolToStr(b bool) string {
 	return "0"
 }
 
-func (c *LibCamera) TakePhoto(filePath string) error {
-	_ = os.Mkdir(filepath.Dir(filePath), 0755)
-
-	cmd := exec.Command("libcamera-still",
-		"-o", filePath,
+func (c *LibCamera) commonArgs() []string {
+	return []string{
 		"--autofocus-range", string(c.settings.AutoFocusRange),
-		"--autofocus-mode", string(c.settings.AutoFocusMode)
+		"--autofocus-mode", string(c.settings.AutoFocusMode),
 		"--vflip", boolToStr(c.settings.VFlip),
 		"--hflip", boolToStr(c.settings.HFlip),
 		"--hdr", boolToStr(c.settings.HDR),
@@ -91,9 +99,43 @@ func (c *LibCamera) TakePhoto(filePath string) error {
 		"-e", string(c.settings.Encoding),
 		"-q", strconv.FormatInt(int64(c.settings.Quality), 10),
 		"--denoise", string(c.settings.Denoise),
+	}
+}
+
+func (c *LibCamera) OpenStream(port int) (*exec.Cmd, error) {
+	args := append(c.commonArgs(),
+		"t", "0",
+		"--width", c.settings.Width,
+		"--height", c.settings.Height,
+		"--codec", c.settings.StreamCodec,
+		"--inline", "--listen", "-o", fmt.Sprintf("tcp://0.0.0.0:%d", port),
 	)
-	println(cmd.String())
-	// Przekieruj wyjście błędów i standardowe do konsoli, jeśli chcesz je zobaczyć
+
+	theCmd := exec.Command("libcamera-vid", args...)
+
+	theCmd.Stdout = os.Stdout
+	theCmd.Stderr = os.Stderr
+
+	return theCmd, theCmd.Start()
+}
+
+var ErrNoProcess = fmt.Errorf("No process to kill")
+
+func (s *LibCamera) StopStreaming(streamCmd *exec.Cmd) error {
+	if streamCmd != nil && streamCmd.Process != nil {
+		return streamCmd.Process.Kill()
+	}
+	return ErrNoProcess
+}
+
+func (c *LibCamera) TakePhoto(filePath string) error {
+	_ = os.Mkdir(filepath.Dir(filePath), 0755)
+	args := append(c.commonArgs(),
+		"-o", filePath,
+	)
+
+	cmd := exec.Command("libcamera-still", args...)
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

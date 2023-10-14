@@ -1,5 +1,5 @@
 
 cmd/timelapse_v2
-cmd/timelapse
+cmd/timelapse_v2
 
 *.jpg

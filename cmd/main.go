@@ -9,7 +9,6 @@ import (
 	"github.com/macrosiak/rspi-timelaps-manager-go/config"
 	"github.com/macrosiak/rspi-timelaps-manager-go/views"
 	"github.com/macrosiak/rspi-timelaps-manager-go/worker"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"net/http"
 	"os"
@@ -35,21 +34,21 @@ func getLatestFile(dir string) string {
 }
 
 func main() {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	//log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	cfg := config.New()
 
 	var cam camera.Camera
 	if cfg.Development {
 		cam = camera.NewFakeCamera()
 	} else {
-		settings := &camera.Settings{
+		settings := &camera.CameraSettings{
 			AutoFocusRange: camera.AutoFocusNormal,
 		}
 		cam = camera.NewLibCamera(settings)
 	}
 
 	timelapseWorker := worker.NewWorker(cam, cfg)
-	go timelapseWorker.Record()
+	go timelapseWorker.Run()
 
 	engine := html.NewFileSystem(http.FS(views.GetViewsFileSystem()), ".html")
 	app := fiber.New(fiber.Config{
