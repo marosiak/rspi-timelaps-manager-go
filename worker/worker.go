@@ -42,20 +42,28 @@ func (w *Worker) configToCameraSettings() {
 func (w *Worker) takePhoto() {
 	w.configToCameraSettings()
 
+	if w.cfg.Streaming {
+		w.stopStreaming()
+	}
+
+	fileName := fmt.Sprintf("%s.%s", time.Now().Format(timeFormat), w.cfg.Encoding)
+	err := w.camera.TakePhoto(filepath.Join(w.cfg.OutputDir, fileName))
+	if err != nil {
+		log.Printf("failed to take photo: %v", err)
+	}
+
+	if w.cfg.Streaming {
+		w.openStream()
+	}
+}
+
+func (w *Worker) stopStreaming() {
 	err := w.camera.StopStreaming(w.streamCmd)
 	if err != nil && !errors.Is(err, camera.ErrNoProcess) {
 		log.Printf("failed to stop streamCmd: %v", err)
 	} else {
 		w.streamCmd = nil
 	}
-
-	fileName := fmt.Sprintf("%s.%s", time.Now().Format(timeFormat), w.cfg.Encoding)
-	err = w.camera.TakePhoto(filepath.Join(w.cfg.OutputDir, fileName))
-	if err != nil {
-		log.Printf("failed to take photo: %v", err)
-	}
-
-	w.openStream()
 }
 
 func (w *Worker) openStream() {
@@ -68,7 +76,6 @@ func (w *Worker) openStream() {
 			if err != nil {
 				log.Printf("failed to open streamCmd: %v", err)
 			}
-
 		}()
 	}
 }

@@ -3,3 +3,5 @@ cmd/timelapse_v2
 cmd/timelapse_v2
 
 *.jpg
+
+*.zip

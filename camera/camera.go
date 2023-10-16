@@ -2,6 +2,7 @@ package camera
 
 import (
 	"fmt"
+	"github.com/macrosiak/rspi-timelaps-manager-go/lib"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -123,7 +124,11 @@ var ErrNoProcess = fmt.Errorf("No process to kill")
 
 func (s *LibCamera) StopStreaming(streamCmd *exec.Cmd) error {
 	if streamCmd != nil && streamCmd.Process != nil {
-		return streamCmd.Process.Kill()
+		err := lib.KillProcess(streamCmd.Process.Pid)
+		if err != nil {
+			return fmt.Errorf("killing process: %v", err)
+		}
+		return nil
 	}
 	return ErrNoProcess
 }
