@@ -70,7 +70,7 @@ func (w *Worker) openStream() {
 	var err error
 	w.configToCameraSettings()
 	if w.streamCmd == nil {
-		log.Debug().Msg("Opening fake camera stream")
+		log.Debug().Msg("Opening camera stream")
 		go func() {
 			w.streamCmd, err = w.camera.OpenStream(8888)
 			if err != nil {
@@ -81,7 +81,9 @@ func (w *Worker) openStream() {
 }
 
 func (w *Worker) Run() {
-	w.openStream()
+	if w.cfg.Streaming {
+		w.openStream()
+	}
 	for {
 		go w.takePhoto()
 		time.Sleep(w.cfg.Delay)
