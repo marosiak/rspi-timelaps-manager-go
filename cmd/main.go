@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/template/html/v2"
+	"github.com/macrosiak/rspi-timelaps-manager-go/api"
 	"github.com/macrosiak/rspi-timelaps-manager-go/camera"
 	"github.com/macrosiak/rspi-timelaps-manager-go/config"
+	"github.com/macrosiak/rspi-timelaps-manager-go/system_stats"
 	"github.com/macrosiak/rspi-timelaps-manager-go/views"
 	"github.com/macrosiak/rspi-timelaps-manager-go/worker"
 	"github.com/rs/zerolog"
@@ -50,6 +51,8 @@ func main() {
 		cam = camera.NewLibCamera(&camera.CameraSettings{})
 	}
 
+	// https://github.com/dgraph-io/badger#installing-badger-command-line-tool
+
 	timelapseWorker := worker.NewWorker(cam, cfg)
 	go timelapseWorker.Run()
 
@@ -59,13 +62,9 @@ func main() {
 	})
 
 	//app.Static("/", "./web_client")
-
+	systemStatsSrv := system_stats.NewSystemStats()
 	if cfg.WebInterface {
-		app.Use(filesystem.New(filesystem.Config{
-			Root:   http.Dir(cfg.OutputDir),
-			Browse: true,
-			MaxAge: 30,
-		}))
+		_ = api.NewApi(app, systemStatsSrv)
 	}
 
 	err := app.Listen(":80")

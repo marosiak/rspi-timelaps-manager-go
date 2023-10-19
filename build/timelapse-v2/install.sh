@@ -9,6 +9,7 @@ SYSTEM_BIN_DIR="/usr/local/bin"
 SYSTEM_SERVICE_DIR="/etc/systemd/system"
 ENV_FILE=".env"
 PHOTOS_DIR="$LOCAL_DIR/photos/"
+WEB_CLIENT_DIR="$LOCAL_DIR/web_client"
 
 # Check if the binary exists in the local directory
 if [[ ! -f "$BINARY_DIR/$BINARY_NAME" ]]; then
@@ -46,10 +47,30 @@ if [[ ! -d "$PHOTOS_DIR" ]]; then
     mkdir "$PHOTOS_DIR"
 fi
 
-# Update the .env file to set the photos directory using 'pwd'
-if grep -q "OUTPUT_DIR=WILL_BE_OVERRITEN_BY_INSTALL_SCRIPT" "$LOCAL_DIR/$ENV_FILE"; then
-    sed -i "s|OUTPUT_DIR=WILL_BE_OVERRITEN_BY_INSTALL_SCRIPT|OUTPUT_DIR=$PHOTOS_DIR|g" "$LOCAL_DIR/$ENV_FILE"
-fi
+# Update the .env file to set the photos directory and web client directory
+awk -v photos_dir="$PHOTOS_DIR" -v web_client_dir="$WEB_CLIENT_DIR" '
+BEGIN { output_updated = 0; web_updated = 0 }
+/OUTPUT_DIR/ {
+    if ($0 ~ /WILL_BE_OVERRITEN_BY_INSTALL_SCRIPT/ || $2 == "") {
+        $0 = "OUTPUT_DIR=" photos_dir
+        output_updated = 1
+    }
+}
+/WEB_INTERFACE_FILES_PATH/ {
+    if ($2 == "") {
+        $0 = "WEB_INTERFACE_FILES_PATH=" web_client_dir
+        web_updated = 1
+    }
+}
+{ print }
+END {
+    if (!output_updated) {
+        print "OUTPUT_DIR=" photos_dir
+    }
+    if (!web_updated) {
+        print "WEB_INTERFACE_FILES_PATH=" web_client_dir
+    }
+}' "$LOCAL_DIR/$ENV_FILE" > "$LOCAL_DIR/$ENV_FILE.tmp" && mv "$LOCAL_DIR/$ENV_FILE.tmp" "$LOCAL_DIR/$ENV_FILE"
 
 # Copy the binary to the system directory
 sudo cp "$BINARY_DIR/$BINARY_NAME" "$SYSTEM_BIN_DIR/"
