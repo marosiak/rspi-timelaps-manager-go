@@ -51,8 +51,6 @@ func main() {
 		cam = camera.NewLibCamera(&camera.CameraSettings{})
 	}
 
-	// https://github.com/dgraph-io/badger#installing-badger-command-line-tool
-
 	timelapseWorker := worker.NewWorker(cam, cfg)
 	go timelapseWorker.Run()
 

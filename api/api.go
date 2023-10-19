@@ -7,6 +7,9 @@ import (
 	"github.com/macrosiak/rspi-timelaps-manager-go/config"
 	. "github.com/macrosiak/rspi-timelaps-manager-go/system_stats"
 	"github.com/rs/zerolog/log"
+	"os"
+	"path/filepath"
+	"time"
 )
 
 type Api struct {
@@ -31,6 +34,34 @@ func NewApi(app *fiber.App, systemStatsSrv *SystemStatsService) *Api {
 	return api
 }
 
+type WebsocketResponse struct {
+	Stats            *StatsResponse `json:"stats"`
+	LastPhotoTakenAt *int64         `json:"lastPhotoTakenAt"`
+}
+
+func (a Api) getLastPhotoTakenAt() (*time.Time, error) {
+	var latestTime time.Time
+
+	files, err := os.ReadDir(a.cfg.OutputDir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		fileInfo, err := os.Stat(filepath.Join(a.cfg.OutputDir, file.Name()))
+		if err != nil {
+			return nil, err
+		}
+
+		fileTime := fileInfo.ModTime()
+		if fileTime.After(latestTime) {
+			latestTime = fileTime
+		}
+	}
+
+	return &latestTime, nil
+}
+
 func (a Api) WebsocketHandler(c *websocket.Conn) {
 	var (
 		mt int
@@ -49,7 +80,19 @@ func (a Api) WebsocketHandler(c *websocket.Conn) {
 			continue
 		}
 
-		respJson, err := json.Marshal(systemInfo)
+		lastPhotoTakenAt, err := a.getLastPhotoTakenAt()
+		if err != nil {
+			log.Err(err).Msg("get last photo taken at")
+			continue
+		}
+
+		lastPhotoTakenAtTimestamp := lastPhotoTakenAt.Unix()
+		response := WebsocketResponse{
+			Stats:            systemInfo,
+			LastPhotoTakenAt: &lastPhotoTakenAtTimestamp,
+		}
+
+		respJson, err := json.Marshal(response)
 		if err != nil {
 			log.Err(err).Msg("json marshal")
 			break

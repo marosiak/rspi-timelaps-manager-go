@@ -3,6 +3,7 @@ package worker
 import (
 	"errors"
 	"fmt"
+	"github.com/dgraph-io/badger/v4"
 	"github.com/macrosiak/rspi-timelaps-manager-go/camera"
 	"github.com/macrosiak/rspi-timelaps-manager-go/config"
 	"github.com/rs/zerolog/log"
@@ -14,6 +15,7 @@ import (
 type Worker struct {
 	camera    camera.Camera
 	cfg       *config.Config
+	db        *badger.DB
 	streamCmd *exec.Cmd
 }
 
