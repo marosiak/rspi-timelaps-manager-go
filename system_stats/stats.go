@@ -107,6 +107,7 @@ func pluralize(n uint64) string {
 func (a *SystemStatsService) getAveragePhotoSize() (uint64, error) {
 	var filesToRead = 20
 	var totalSize float64
+	var count int
 
 	// Read all files from directory
 	files, err := os.ReadDir(a.cfg.OutputDir)
@@ -114,34 +115,34 @@ func (a *SystemStatsService) getAveragePhotoSize() (uint64, error) {
 		return 0, fmt.Errorf("read dir: %w", err)
 	}
 
+	if len(files) == 0 {
+		return 8 * 1024 * 1024, nil // Return 8MB if no files are present
+	}
+
 	// Sort files by modification time, newest first
 	sort.Slice(files, func(i, j int) bool {
 		infoI, errI := files[i].Info()
 		infoJ, errJ := files[j].Info()
-
 		if errI != nil || errJ != nil {
-			return false // Handle error as you see fit
+			return false
 		}
-
 		return infoI.ModTime().After(infoJ.ModTime())
 	})
 
 	files = files[:min(len(files), filesToRead)]
 
-	// Calculate average size of the 20 latest files and inflate it by 20%
-	for i, file := range files {
-		if i >= filesToRead {
-			break
-		}
-
+	// Calculate average size of the latest files and inflate it by 20%
+	for _, file := range files {
 		fInfo, err := file.Info()
 		if err != nil {
 			return 0, fmt.Errorf("get file info: %w", err)
 		}
-
 		totalSize += float64(fInfo.Size())
+		count++
 	}
-	return uint64(totalSize / float64(filesToRead)), nil
+
+	averageSize := totalSize / float64(count)
+	return uint64(averageSize), nil
 }
 
 func (a *SystemStatsService) getDiskInfo() (memoryInfo MemoryInfo, err error) {
