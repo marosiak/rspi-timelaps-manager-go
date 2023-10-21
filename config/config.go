@@ -21,7 +21,7 @@ type Config struct {
 	WebInterfaceFilesPath string `default:"./web_client" split_words:"true"`
 
 	OutputDir string        `default:"photos" split_words:"true"`
-	Delay     time.Duration `default:"20s" split_words:"true"`
+	Delay     time.Duration `default:"1m" split_words:"true"`
 
 	AutoFocusRange camera.AutoFocusRange `default:"normal" split_words:"true"`
 	AutoFocusMode  camera.AutoFocusMode  `default:"auto" split_words:"true"`

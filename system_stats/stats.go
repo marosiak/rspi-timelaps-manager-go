@@ -129,9 +129,10 @@ func (a *SystemStatsService) getAveragePhotoSize() (uint64, error) {
 		return infoI.ModTime().After(infoJ.ModTime())
 	})
 
+	// Consider only up to 20 newest files
 	files = files[:min(len(files), filesToRead)]
 
-	// Calculate average size of the latest files and inflate it by 20%
+	// Calculate average size of the latest files
 	for _, file := range files {
 		fInfo, err := file.Info()
 		if err != nil {
