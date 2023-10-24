@@ -19,6 +19,7 @@ type Config struct {
 
 	WebInterface          bool   `default:"true" split_words:"true"`
 	WebInterfaceFilesPath string `default:"./web_client" split_words:"true"`
+	Password              string `default:"admin" split_words:"true"`
 
 	OutputDir string        `default:"photos" split_words:"true"`
 	Delay     time.Duration `default:"1m" split_words:"true"`
