@@ -73242,7 +73242,7 @@ m.f=k
 m.y=new A.es(Date.now(),!1)},
 $S:0}
 A.vo.prototype={
-ap(){return new A.zB(new A.a6g(new A.a6h("ws://localhost/ws")),B.k)}}
+ap(){return new A.zB(new A.a6g(new A.a6h("ws://raspberrypi.local/ws")),B.k)}}
 A.a43.prototype={
 ep(){var s=this,r=new A.dv(t.dl),q=s.a
 if(q!=null)r.n(0,"ram",q.ep())
