@@ -6,10 +6,10 @@ import (
 	"github.com/gofiber/template/html/v2"
 	"github.com/macrosiak/rspi-timelaps-manager-go/api"
 	"github.com/macrosiak/rspi-timelaps-manager-go/camera"
+	"github.com/macrosiak/rspi-timelaps-manager-go/camera_worker"
 	"github.com/macrosiak/rspi-timelaps-manager-go/config"
 	"github.com/macrosiak/rspi-timelaps-manager-go/system_stats"
 	"github.com/macrosiak/rspi-timelaps-manager-go/views"
-	"github.com/macrosiak/rspi-timelaps-manager-go/worker"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"net/http"
@@ -51,7 +51,8 @@ func main() {
 		cam = camera.NewLibCamera(&camera.CameraSettings{})
 	}
 
-	timelapseWorker := worker.NewWorker(cam, cfg)
+	pubSub := api.NewPubSub()
+	timelapseWorker := camera_worker.NewCameraWorker(cam, cfg, pubSub)
 	go timelapseWorker.Run()
 
 	engine := html.NewFileSystem(http.FS(views.GetViewsFileSystem()), ".html")
@@ -59,10 +60,9 @@ func main() {
 		Views: engine,
 	})
 
-	//app.Static("/", "./web_client")
 	systemStatsSrv := system_stats.NewSystemStats()
 	if cfg.WebInterface {
-		_ = api.NewApi(app, systemStatsSrv)
+		_ = api.NewApi(app, systemStatsSrv, pubSub)
 	}
 
 	err := app.Listen(":80")

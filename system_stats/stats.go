@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/mackerelio/go-osstat/cpu"
 	ram "github.com/mackerelio/go-osstat/memory"
+	"github.com/macrosiak/rspi-timelaps-manager-go/commands"
 	"github.com/macrosiak/rspi-timelaps-manager-go/config"
 	"github.com/rs/zerolog/log"
 	"math"
@@ -14,8 +15,9 @@ import (
 	"time"
 )
 
-type SystemStatsService struct {
+type StatisticsService struct {
 	cfg          *config.Config
+	cmdSrv       *commands.CommendsService
 	lastCpuStats *cpu.Stats
 }
 
@@ -32,16 +34,19 @@ type MemoryInfo struct {
 }
 
 type StatsResponse struct {
-	Ram    *ram.Stats  `json:"ram"`
-	Cpu    *CpuInfo    `json:"cpu"`
-	Memory *MemoryInfo `json:"memory"`
+	Ram              *ram.Stats  `json:"ram"`
+	Cpu              *CpuInfo    `json:"cpu"`
+	Memory           *MemoryInfo `json:"memory"`
+	LastPhotoTakenAt *int64      `json:"lastPhotoTakenAt"`
 }
 
-func NewSystemStats() *SystemStatsService {
+func NewSystemStats() *StatisticsService {
 	var currentCpuStats *cpu.Stats
 	var err error
-	systemStatsSrv := &SystemStatsService{
-		cfg: config.New(),
+	cfg := config.New()
+	systemStatsSrv := &StatisticsService{
+		cfg:    cfg,
+		cmdSrv: commands.NewCommendsService(cfg),
 	}
 
 	currentCpuStats, err = systemStatsSrv.getCpuStats()
@@ -61,7 +66,7 @@ func min(a, b int) int {
 	return b
 }
 
-func (a *SystemStatsService) calculateTimeRemainingForTimelapse(freeSpace uint64, avgFileSize uint64) string {
+func (a *StatisticsService) calculateTimeRemainingForTimelapse(freeSpace uint64, avgFileSize uint64) string {
 	// Calculate how many files can fit with free space
 	filesToFit := freeSpace / avgFileSize
 
@@ -104,7 +109,7 @@ func pluralize(n uint64) string {
 	return "s"
 }
 
-func (a *SystemStatsService) getAveragePhotoSize() (uint64, error) {
+func (a *StatisticsService) getAveragePhotoSize() (uint64, error) {
 	var filesToRead = 20
 	var totalSize float64
 	var count int
@@ -146,7 +151,7 @@ func (a *SystemStatsService) getAveragePhotoSize() (uint64, error) {
 	return uint64(averageSize), nil
 }
 
-func (a *SystemStatsService) getDiskInfo() (memoryInfo MemoryInfo, err error) {
+func (a *StatisticsService) getDiskInfo() (memoryInfo MemoryInfo, err error) {
 	total, free, err := getDiskUsage(a.cfg.OutputDir)
 	if err != nil {
 		return MemoryInfo{}, err
@@ -166,7 +171,7 @@ func (a *SystemStatsService) getDiskInfo() (memoryInfo MemoryInfo, err error) {
 	return memoryInfo, nil
 }
 
-func (a *SystemStatsService) getCpuStats() (*cpu.Stats, error) {
+func (a *StatisticsService) getCpuStats() (*cpu.Stats, error) {
 	if runtime.GOOS == "windows" {
 		return &cpu.Stats{
 			User:   1,
@@ -186,7 +191,7 @@ func (a *SystemStatsService) getCpuStats() (*cpu.Stats, error) {
 
 var CpuInfoIsNaN = errors.New("cpu info is NaN")
 
-func (a *SystemStatsService) getCpuInfo() (*CpuInfo, error) {
+func (a *StatisticsService) getCpuInfo() (*CpuInfo, error) {
 	if a.lastCpuStats == nil {
 		stats, err := a.getCpuStats()
 		if err != nil {
@@ -214,7 +219,7 @@ func (a *SystemStatsService) getCpuInfo() (*CpuInfo, error) {
 	return cpuInfo, nil
 }
 
-func (a *SystemStatsService) GetSystemUsageInfo() (*StatsResponse, error) {
+func (a *StatisticsService) GetStats() (*StatsResponse, error) {
 	ramInfo, err := ram.Get()
 	if err != nil {
 		return nil, fmt.Errorf("get memory info: %w", err)
@@ -238,9 +243,19 @@ func (a *SystemStatsService) GetSystemUsageInfo() (*StatsResponse, error) {
 		}
 	}
 
-	return &StatsResponse{
+	response := StatsResponse{
 		Ram:    ramInfo,
 		Cpu:    cpuInfo,
 		Memory: &memoryInfo,
-	}, nil
+	}
+
+	lastPhotoTakenAt, err := a.cmdSrv.GetLastPhotoTakenDate()
+	if err != nil {
+		log.Err(err).Msg("get last photo taken at")
+	} else {
+		tmp := lastPhotoTakenAt.Unix()
+		response.LastPhotoTakenAt = &tmp
+	}
+
+	return &response, nil
 }

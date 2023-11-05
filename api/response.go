@@ -8,18 +8,11 @@ import (
 )
 
 type WebsocketStatsResponse struct {
-	Stats            *StatsResponse `json:"stats"`
-	LastPhotoTakenAt int64          `json:"lastPhotoTakenAt"`
+	Stats *StatsResponse `json:"stats"`
 }
 
-type WebsocketError string
-
-const (
-	WebsocketNotAuthorisedError WebsocketError = "NOT_AUTHORISED"
-)
-
 type WebsocketErrorResponse struct {
-	Error WebsocketError `json:"error"`
+	Error ActionStatus `json:"error"`
 }
 
 func sendStruct(c *websocket.Conn, mt int, theStruct interface{}) {
@@ -33,7 +26,7 @@ func sendStruct(c *websocket.Conn, mt int, theStruct interface{}) {
 	}
 }
 
-func SendError(c *websocket.Conn, mt int, websocketError WebsocketError) {
+func SendError(c *websocket.Conn, mt int, websocketError ActionStatus) {
 	response := WebsocketErrorResponse{
 		Error: websocketError,
 	}
@@ -46,6 +39,8 @@ type Action string
 const (
 	ActionRemoveAllImages = "REMOVE_ALL_IMAGES"
 	ActionAuth            = "AUTH"
+	ActionSubscribe       = "SUBSCRIBE"
+	ActionUnsubscribe     = "UNSUBSCRIBE"
 )
 
 type ActionPayload struct {
@@ -56,9 +51,11 @@ type ActionPayload struct {
 type ActionStatus string
 
 const (
-	ActionStatusSuccess          = "SUCCESS"
-	ActionStatusFail             = "FAIL"
-	ActionStatusWrongCredentials = "WRONG_CREDENTIALS"
+	ActionStatusSuccess            ActionStatus = "SUCCESS"
+	ActionStatusUnknownError       ActionStatus = "UNKNOWN_ERROR"
+	ActionStatusWrongCredentials   ActionStatus = "WRONG_CREDENTIALS"
+	ActionStatusInvalidTopic       ActionStatus = "INVALID_TOPIC"
+	ActionStatusNotAuthorisedError ActionStatus = "NOT_AUTHORISED"
 )
 
 type ActionResponse struct {
@@ -73,6 +70,10 @@ func SendStatus(c *websocket.Conn, mt int, action Action, status ActionStatus, m
 		Status:  status,
 		Message: message,
 	}
-
 	sendStruct(c, mt, response)
+}
+
+type PhotoResponse struct {
+	Photo     string `json:"photo"`
+	CreatedAt int64  `json:"createdAt"`
 }

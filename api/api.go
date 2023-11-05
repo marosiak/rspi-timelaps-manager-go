@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	. "github.com/macrosiak/rspi-timelaps-manager-go/commands"
@@ -13,9 +14,10 @@ import (
 
 type Api struct {
 	cfg               *config.Config
-	systemStatsSrv    *SystemStatsService
+	systemStatsSrv    *StatisticsService
 	connectionsAuthed map[*websocket.Conn]bool
 	commandsService   *CommendsService
+	pubSub            *PubSub
 }
 
 func (a Api) authApiKey(c *websocket.Conn, key string) bool {
@@ -30,9 +32,9 @@ func (a Api) isUserAuthorised(c *websocket.Conn) bool {
 	return a.connectionsAuthed[c]
 }
 
-func NewApi(app *fiber.App, systemStatsSrv *SystemStatsService) *Api {
+func NewApi(app *fiber.App, systemStatsSrv *StatisticsService, pubSub *PubSub) *Api {
 	cfg := config.New()
-	api := &Api{cfg: cfg, systemStatsSrv: systemStatsSrv, connectionsAuthed: make(map[*websocket.Conn]bool), commandsService: NewCommendsService(cfg)}
+	api := &Api{cfg: cfg, systemStatsSrv: systemStatsSrv, connectionsAuthed: make(map[*websocket.Conn]bool), pubSub: pubSub, commandsService: NewCommendsService(cfg)}
 	app.Use("/ws", func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {
 			c.Locals("allowed", true)
@@ -41,9 +43,28 @@ func NewApi(app *fiber.App, systemStatsSrv *SystemStatsService) *Api {
 		return fiber.ErrUpgradeRequired
 	})
 
-	app.Static("/", api.cfg.WebInterfaceFilesPath)
+	app.Static("/", api.cfg.WebInterfaceFilesPath, fiber.Static{
+		CacheDuration: time.Hour * 24,
+	})
+	app.Static("/photos", api.cfg.OutputDir)
 	app.Get("/ws/", websocket.New(api.WebsocketHandler))
+	go api.StatisticsWorker()
 	return api
+}
+
+func (a Api) StatisticsWorker() {
+	for {
+		stats, err := a.systemStatsSrv.GetStats()
+		if err != nil {
+			log.Err(err).Msg("get stats")
+		}
+
+		err = a.pubSub.PublishJson(StatisticsTopic, stats)
+		if err != nil {
+			log.Err(err).Msg("publish stats")
+		}
+		time.Sleep(1 * time.Second)
+	}
 }
 
 func (a Api) WebsocketHandler(c *websocket.Conn) {
@@ -66,7 +87,7 @@ func (a Api) WebsocketHandler(c *websocket.Conn) {
 			}
 
 			if !a.isUserAuthorised(c) && actionPayload.Action != ActionAuth {
-				SendError(c, mt, WebsocketNotAuthorisedError)
+				SendError(c, mt, ActionStatusNotAuthorisedError)
 				continue
 			}
 
@@ -79,6 +100,11 @@ func (a Api) WebsocketHandler(c *websocket.Conn) {
 					continue
 				} else {
 					SendStatus(c, mt, ActionAuth, ActionStatusSuccess, nil)
+					err := a.pubSub.Subscribe(c, mt, StatisticsTopic)
+					if err != nil {
+						log.Err(err).Msg("subscribe to stats topic after auth")
+					}
+					continue
 				}
 			case ActionRemoveAllImages:
 				err := a.commandsService.RemoveAllPhotos()
@@ -89,40 +115,22 @@ func (a Api) WebsocketHandler(c *websocket.Conn) {
 					SendStatus(c, mt, ActionRemoveAllImages, ActionStatusSuccess, nil)
 				}
 				continue
+			case ActionSubscribe:
+				err := a.pubSub.Subscribe(c, mt, Topic(actionPayload.Value))
+				if err != nil {
+					if errors.Is(err, TopicNotWhitelistedErr) {
+						SendError(c, mt, ActionStatusInvalidTopic)
+						continue
+					}
+					SendError(c, mt, ActionStatusUnknownError)
+					continue
+				}
 			}
 		} else {
 			if !a.isUserAuthorised(c) {
-				SendError(c, mt, WebsocketNotAuthorisedError)
+				SendError(c, mt, ActionStatusNotAuthorisedError)
 				continue
 			}
-		}
-
-		systemInfo, err := a.systemStatsSrv.GetSystemUsageInfo()
-		if err != nil {
-			log.Err(err).Msg("get system info")
-			continue
-		}
-
-		lastPhotoTakenAt, err := a.commandsService.GetLastPhotoTakenDate()
-		if err != nil {
-			log.Err(err).Msg("get last photo taken at")
-			continue
-		}
-
-		response := WebsocketStatsResponse{
-			Stats:            systemInfo,
-			LastPhotoTakenAt: lastPhotoTakenAt.Unix(),
-		}
-
-		respJson, err := json.Marshal(response)
-		if err != nil {
-			log.Err(err).Msg("json marshal")
-			break
-		}
-
-		if err = c.WriteMessage(mt, respJson); err != nil {
-			log.Err(err).Msg("write message")
-			break
 		}
 	}
 }
