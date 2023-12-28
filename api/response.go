@@ -37,10 +37,10 @@ func SendError(c *websocket.Conn, mt int, websocketError ActionStatus) {
 type Action string
 
 const (
-	ActionRemoveAllImages = "REMOVE_ALL_IMAGES"
-	ActionAuth            = "AUTH"
-	ActionSubscribe       = "SUBSCRIBE"
-	ActionUnsubscribe     = "UNSUBSCRIBE"
+	ActionRemoveAllImages Action = "REMOVE_ALL_IMAGES"
+	ActionAuth            Action = "AUTH"
+	ActionSubscribe       Action = "SUBSCRIBE"
+	ActionUnsubscribe     Action = "UNSUBSCRIBE"
 )
 
 type ActionPayload struct {
