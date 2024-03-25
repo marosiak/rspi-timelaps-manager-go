@@ -1,7 +1,6 @@
 #!/bin/bash
-
 # Path definitions
-LOCAL_DIR="$(pwd)"
+LOCAL_DIR="$(pwd)" 
 BINARY_DIR="$LOCAL_DIR/bin"
 BINARY_NAME="timelapse_v2"
 SERVICE_NAME="timelapse.service"

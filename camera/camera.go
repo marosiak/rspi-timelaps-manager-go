@@ -89,13 +89,20 @@ func boolToStr(b bool) string {
 	return "0"
 }
 
+func getHDR(enabled bool) string {
+	if enabled {
+		return "auto"
+	}
+	return "off"
+}
+
 func (c *LibCamera) commonArgs() []string {
 	return []string{
 		"--autofocus-range", string(c.settings.AutoFocusRange),
 		"--autofocus-mode", string(c.settings.AutoFocusMode),
 		"--vflip", boolToStr(c.settings.VFlip),
 		"--hflip", boolToStr(c.settings.HFlip),
-		"--hdr", boolToStr(c.settings.HDR),
+		"--hdr", getHDR(c.settings.HDR),
 		"-n",
 		"-e", string(c.settings.Encoding),
 		"-q", strconv.FormatInt(int64(c.settings.Quality), 10),
